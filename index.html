@@ -170,8 +170,8 @@ hr.div{border:none;border-top:1px solid var(--border);margin:12px 0}
       style="font-size:32px;font-weight:700;font-family:var(--mono);text-align:center;border:2px solid var(--border2);border-radius:14px;padding:14px;width:100%;background:var(--bg3);color:var(--text);margin-bottom:18px;outline:none"
       onfocus="this.style.borderColor='var(--a2)'" onblur="this.style.borderColor='var(--border2)'"
       onkeydown="if(event.key==='Enter'){document.getElementById('ql-cats').querySelector('.ql-cat-btn')?.focus()}">
-    <div style="font-size:11px;color:var(--text2);margin-bottom:6px;font-weight:500">Month</div>
-    <div id="ql-months" style="display:flex;gap:7px;margin-bottom:16px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px"></div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:6px;font-weight:500">Date</div>
+    <input type="date" id="ql-date" style="width:100%;padding:10px 12px;border:2px solid var(--border2);border-radius:10px;background:var(--bg3);color:var(--text);font-family:var(--font);font-size:14px;margin-bottom:16px;outline:none" onfocus="this.style.borderColor='var(--a2)'" onblur="this.style.borderColor='var(--border2)'" onchange="qlDateChange(this.value)">
     <div style="font-size:11px;color:var(--text2);margin-bottom:8px;font-weight:500">Category</div>
     <div id="ql-cats" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:20px"></div>
     <button class="btn pri full" style="padding:13px;font-size:14px" onclick="submitQuickLog()">Add expense ↗</button>
@@ -2232,27 +2232,22 @@ function closeEOMModal(){const o=$('eom-overlay');if(o)o.classList.add('hidden')
 
 // ── QUICK LOG ──
 const SPEND_CATS=[{name:'Food',icon:'🍜'},{name:'Transport',icon:'🚌'},{name:'Shopping',icon:'🛍️'},{name:'Entertainment',icon:'🎬'},{name:'Health',icon:'💊'},{name:'Travel',icon:'✈️'},{name:'Others',icon:'•'}];
-let qlCat=null,qlMonth=null;
+let qlCat=null;
 function openQuickLog(){
   const overlay=$('ql-overlay');if(!overlay)return;
   overlay.classList.remove('hidden');
-  qlCat=null;qlMonth=curMonth();
-  // Month pills — current + 5 previous
-  const months=[];const now=new Date();
-  for(let i=0;i<6;i++){const d=new Date(now.getFullYear(),now.getMonth()-i,1);months.push(d.toLocaleDateString('en-SG',{month:'short',year:'numeric'}));}
-  const mel=$('ql-months');
-  if(mel)mel.innerHTML=months.map(m=>`<button class="ql-month-btn${m===qlMonth?' sel':''}" onclick="qlPickMonth('${m}',this)">${m}</button>`).join('');
-  // Date label
+  qlCat=null;
+  const today=new Date().toISOString().slice(0,10);
+  const qlD=$('ql-date');if(qlD)qlD.value=today;
   st('ql-date-label',new Date().toLocaleDateString('en-SG',{weekday:'short',day:'numeric',month:'short'}));
-  // Fixed spending sub-categories (all logged under "Spending" budget)
   const el=$('ql-cats');
   if(el)el.innerHTML=SPEND_CATS.map(c=>`<button class="ql-cat-btn" onclick="qlPickCat('${c.name}',this)">${c.icon} ${c.name}</button>`).join('');
   const amt=$('ql-amt');if(amt){amt.value='';setTimeout(()=>amt.focus(),150);}
 }
-function qlPickMonth(m,btn){
-  qlMonth=m;
-  document.querySelectorAll('#ql-months .ql-month-btn').forEach(b=>b.classList.remove('sel'));
-  btn.classList.add('sel');
+function qlDateChange(val){
+  if(!val)return;
+  const d=new Date(val+'T00:00:00');
+  st('ql-date-label',d.toLocaleDateString('en-SG',{weekday:'short',day:'numeric',month:'short'}));
 }
 function qlPickCat(name,btn){
   qlCat=name;
@@ -2265,15 +2260,18 @@ function submitQuickLog(){
   const amt=parseFloat($('ql-amt')?.value);
   if(!amt||amt<=0){toast('Enter an amount');$('ql-amt')?.focus();return;}
   if(!qlCat){toast('Pick a category');return;}
-  const month=qlMonth||curMonth();
+  const dateVal=$('ql-date')?.value||new Date().toISOString().slice(0,10);
+  const month=dateToMonth(dateVal);
   if(!S.spendLog)S.spendLog=[];
-  S.spendLog.push({cat:qlCat,amt,month});
+  S.spendLog.push({cat:qlCat,amt,date:dateVal,month});
   if(!S.budget)S.budget={categories:[],actuals:{}};
   if(!S.budget.actuals)S.budget.actuals={};
   if(!S.budget.actuals[month])S.budget.actuals[month]={};
   S.budget.actuals[month]['Spending']=(S.budget.actuals[month]['Spending']||0)+amt;
   saveS();closeQLModal();
-  toast('✓ '+qlCat+' '+fmt(amt)+(month!==curMonth()?' → '+month:''));
+  const d=new Date(dateVal+'T00:00:00');
+  const dayLabel=d.toLocaleDateString('en-SG',{day:'numeric',month:'short'});
+  toast('✓ '+qlCat+' '+fmt(amt)+' · '+dayLabel);
 }
 
 // ── RECURRING PAYMENTS ──
