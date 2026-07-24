@@ -165,17 +165,35 @@ hr.div{border:none;border-top:1px solid var(--border);margin:12px 0}
     <div class="modal-handle"></div>
     <div class="fb mb16">
       <div style="font-size:16px;font-weight:600">Log expense</div>
-      <div class="xxs faint mono" id="ql-date-label">—</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="xxs faint mono" id="ql-date-label">—</div>
+        <button onclick="toggleQlTrip()" id="ql-trip-btn" title="Overseas / trip mode"
+          style="font-size:18px;background:none;border:1px solid var(--border2);border-radius:8px;padding:2px 6px;cursor:pointer;opacity:0.45;transition:opacity .15s,border-color .15s">✈️</button>
+      </div>
     </div>
-    <input type="number" id="ql-amt" placeholder="0.00" inputmode="decimal"
-      style="font-size:32px;font-weight:700;font-family:var(--mono);text-align:center;border:2px solid var(--border2);border-radius:14px;padding:14px;width:100%;background:var(--bg3);color:var(--text);margin-bottom:18px;outline:none"
+    <input type="number" id="ql-amt" placeholder="0.00" inputmode="decimal" oninput="qlAmtInput()"
+      style="font-size:32px;font-weight:700;font-family:var(--mono);text-align:center;border:2px solid var(--border2);border-radius:14px;padding:14px;width:100%;background:var(--bg3);color:var(--text);margin-bottom:8px;outline:none"
       onfocus="this.style.borderColor='var(--a2)'" onblur="this.style.borderColor='var(--border2)'"
       onkeydown="if(event.key==='Enter'){document.getElementById('ql-cats').querySelector('.ql-cat-btn')?.focus()}">
-    <div style="font-size:11px;color:var(--text2);margin-bottom:6px;font-weight:500">Date</div>
-    <input type="date" id="ql-date" style="width:100%;padding:10px 12px;border:2px solid var(--border2);border-radius:10px;background:var(--bg3);color:var(--text);font-family:var(--font);font-size:14px;margin-bottom:16px;outline:none" onfocus="this.style.borderColor='var(--a2)'" onblur="this.style.borderColor='var(--border2)'" onchange="qlDateChange(this.value)">
+    <!-- Trip extras — hidden until ✈️ toggled -->
+    <div id="ql-trip-section" style="display:none">
+      <div id="ql-trip-sgd" style="text-align:center;font-size:13px;color:var(--a2);font-weight:600;margin-bottom:12px">= S$ —</div>
+      <div id="trip-cur-pills" style="display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;margin-bottom:12px"></div>
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <button id="tp-me" class="btn" style="flex:1;border-color:var(--a3);color:var(--a3)" onclick="tripPickPayer('me',this)">👤 Me</button>
+        <button id="tp-partner" class="btn" style="flex:1" onclick="tripPickPayer('partner',this)">👥 Partner</button>
+        <button id="tp-shared" class="btn" style="flex:1" onclick="tripPickPayer('shared',this)">⇌ Shared</button>
+      </div>
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:11px;color:var(--text2);margin-bottom:6px;font-weight:500">Date</div>
+      <input type="date" id="ql-date" style="width:100%;padding:10px 12px;border:2px solid var(--border2);border-radius:10px;background:var(--bg3);color:var(--text);font-family:var(--font);font-size:14px;outline:none" onfocus="this.style.borderColor='var(--a2)'" onblur="this.style.borderColor='var(--border2)'" onchange="qlDateChange(this.value)">
+    </div>
     <div style="font-size:11px;color:var(--text2);margin-bottom:8px;font-weight:500">Category</div>
     <div id="ql-cats" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:20px"></div>
     <button class="btn pri full" style="padding:13px;font-size:14px" onclick="submitQuickLog()">Add expense ↗</button>
+    <!-- Compact trip summary shown when trip mode active -->
+    <div id="ql-trip-summary" style="display:none;margin-top:14px;padding-top:12px;border-top:1px solid var(--border2)"></div>
   </div>
 </div>
 
@@ -1073,52 +1091,12 @@ hr.div{border:none;border-top:1px solid var(--border);margin:12px 0}
   </div>
 </div>
 
-<!-- ══════════ TAB 6: TRIP ══════════ -->
-<div class="panel" id="p-trip">
-  <div class="card mb12">
-    <div class="fb mb6">
-      <div style="font-size:16px;font-weight:700" id="trip-name-display">✈️ Trip</div>
-      <button class="btn sm" onclick="toggleTripSetup()">⚙</button>
-    </div>
-    <div id="trip-setup" style="display:none;margin-top:8px">
-      <div class="field mb8"><label>Trip name</label><input type="text" id="trip-name-input" placeholder="Europe Aug 2026"></div>
-      <button class="btn sm pri" onclick="saveTripName()">Save</button>
-      <button class="btn sm" style="margin-left:6px" onclick="toggleTripSetup()">Cancel</button>
-    </div>
-    <div id="trip-rates-label" class="xxs faint mt4"></div>
-  </div>
-  <div class="card mb12">
-    <div style="font-size:11px;color:var(--text2);margin-bottom:6px;font-weight:500">Currency</div>
-    <div id="trip-cur-pills" style="display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px"></div>
-    <input type="number" id="trip-amt" placeholder="0.00" inputmode="decimal" oninput="updateTripConversion()"
-      style="font-size:30px;font-weight:700;font-family:var(--mono);text-align:center;border:2px solid var(--border2);border-radius:12px;padding:12px;width:100%;background:var(--bg3);color:var(--text);margin-bottom:6px;outline:none"
-      onfocus="this.style.borderColor='var(--a2)'" onblur="this.style.borderColor='var(--border2)'">
-    <div id="trip-sgd-display" style="text-align:center;font-size:13px;color:var(--text3);margin-bottom:14px">= S$ —</div>
-    <div style="font-size:11px;color:var(--text2);margin-bottom:6px;font-weight:500">Category</div>
-    <div id="trip-cats" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px"></div>
-    <div style="font-size:11px;color:var(--text2);margin-bottom:6px;font-weight:500">Paid by</div>
-    <div style="display:flex;gap:8px;margin-bottom:14px">
-      <button id="tp-me" class="btn" style="flex:1;border-color:var(--a3);color:var(--a3)" onclick="tripPickPayer('me',this)">👤 Me</button>
-      <button id="tp-partner" class="btn" style="flex:1" onclick="tripPickPayer('partner',this)">👥 Partner</button>
-      <button id="tp-shared" class="btn" style="flex:1" onclick="tripPickPayer('shared',this)">⇌ Shared</button>
-    </div>
-    <div class="r2 mb12">
-      <div class="field" style="margin:0"><label>Note (optional)</label><input type="text" id="trip-note" placeholder="e.g. Dinner at Nobu"></div>
-      <div class="field" style="margin:0"><label>Date</label><input type="date" id="trip-date"></div>
-    </div>
-    <button class="btn pri full" style="padding:13px;font-size:14px" onclick="addTripExpense()">Log expense ✓</button>
-  </div>
-  <div class="card mb12" id="trip-summary" style="display:none"></div>
-  <div id="trip-list"></div>
-</div>
-
 <nav class="nav">
   <button class="ni active" onclick="switchTab('overview')" id="ni-overview"><span class="ni-icon">◈</span>Overview</button>
   <button class="ni" onclick="switchTab('savings')" id="ni-savings"><span class="ni-icon">◎</span>Savings</button>
   <button class="ni" onclick="switchTab('budget')" id="ni-budget"><span class="ni-icon">◧</span>Budget</button>
   <button class="ni" onclick="switchTab('trends')" id="ni-trends"><span class="ni-icon">◐</span>Trends</button>
   <button class="ni" onclick="switchTab('cards')" id="ni-cards"><span class="ni-icon">💳</span>Cards</button>
-  <button class="ni" onclick="switchTab('trip')" id="ni-trip"><span class="ni-icon">✈️</span>Trip</button>
 </nav>
 </div>
 
@@ -1278,7 +1256,6 @@ function switchTab(name){
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
   $('p-'+name).classList.add('active');$('ni-'+name).classList.add('active');
   if(name==='cards')renderCardCatPills();
-  if(name==='trip')initTrip();
   window.scrollTo(0,0);
   if(name==='trends'){renderTrends();fetchTicker();loadFeed();renderMyChannels();loadWatchlist();}
   if(name==='savings'){renderSavingsTab();}
@@ -2285,6 +2262,9 @@ function openQuickLog(){
   const el=$('ql-cats');
   if(el)el.innerHTML=SPEND_CATS.map(c=>`<button class="ql-cat-btn" onclick="qlPickCat('${c.name}',this)">${c.icon} ${c.name}</button>`).join('');
   const amt=$('ql-amt');if(amt){amt.value='';setTimeout(()=>amt.focus(),150);}
+  // reset trip section
+  if(qlTripMode){const sec=$('ql-trip-section');if(sec)sec.style.display='';}
+  const sgdEl=$('ql-trip-sgd');if(sgdEl)sgdEl.textContent='= S$ —';
 }
 function qlDateChange(val){
   if(!val)return;
@@ -2304,6 +2284,22 @@ function submitQuickLog(){
   if(!qlCat){toast('Pick a category');return;}
   const dateVal=$('ql-date')?.value||new Date().toISOString().slice(0,10);
   const month=dateToMonth(dateVal);
+  if(qlTripMode){
+    const sgd=toSGD(amt,tripCur);
+    if(sgd===null){toast('No rate for '+tripCur+' — check connection');return;}
+    if(!S.trip)S.trip={expenses:[]};
+    if(!S.trip.expenses)S.trip.expenses=[];
+    S.trip.expenses.push({id:Date.now(),amt,currency:tripCur,sgd,cat:qlCat,payer:tripPayer,date:dateVal,note:''});
+    saveS();
+    const cur=TRIP_CURS.find(c=>c.code===tripCur);
+    toast('✈️ '+qlCat+' '+(cur?.sym||'')+amt.toFixed(2)+' = S$'+sgd.toFixed(2));
+    $('ql-amt').value='';
+    const sgdEl=$('ql-trip-sgd');if(sgdEl)sgdEl.textContent='= S$ —';
+    qlCat=null;
+    document.querySelectorAll('#ql-cats .ql-cat-btn').forEach(b=>b.classList.remove('sel'));
+    renderQlTripSummary();
+    return;
+  }
   if(!S.spendLog)S.spendLog=[];
   S.spendLog.push({cat:qlCat,amt,date:dateVal,month});
   if(!S.budget)S.budget={categories:[],actuals:{}};
@@ -2795,50 +2791,37 @@ const TRIP_CURS=[
   {code:'THB',sym:'฿',flag:'🇹🇭'},{code:'MYR',sym:'RM',flag:'🇲🇾'},{code:'AUD',sym:'A$',flag:'🇦🇺'},
   {code:'HKD',sym:'HK$',flag:'🇭🇰'},{code:'KRW',sym:'₩',flag:'🇰🇷'},
 ];
-const TRIP_CATS=[
-  {name:'Food',icon:'🍜'},{name:'Transport',icon:'🚌'},{name:'Stay',icon:'🏨'},
-  {name:'Activity',icon:'🎭'},{name:'Shopping',icon:'🛍️'},{name:'Other',icon:'•'},
-];
-let tripRates={SGD:1},tripCur='EUR',tripCat=null,tripPayer='me';
+let tripRates={SGD:1},tripCur='EUR',tripPayer='me',qlTripMode=false;
 
-function initTrip(){
-  if(!S.trip)S.trip={name:'✈️ Europe Aug 2026',expenses:[]};
-  st('trip-name-display',S.trip.name);
-  const cp=$('trip-cur-pills');
-  if(cp)cp.innerHTML=TRIP_CURS.map(c=>`<button class="ql-month-btn${c.code===tripCur?' sel':''}" onclick="tripPickCur('${c.code}',this)">${c.flag} ${c.code}</button>`).join('');
-  const cats=$('trip-cats');
-  if(cats)cats.innerHTML=TRIP_CATS.map(c=>`<button class="ql-cat-btn" onclick="tripPickCat('${c.name}',this)">${c.icon} ${c.name}</button>`).join('');
-  // restore payer highlight
-  tripPickPayer(tripPayer,$(tripPayer==='me'?'tp-me':tripPayer==='partner'?'tp-partner':'tp-shared'));
-  const td=$('trip-date');if(td&&!td.value)td.value=new Date().toISOString().slice(0,10);
-  loadTripRates();
-  renderTripList();
-  renderTripSummary();
+function toggleQlTrip(){
+  qlTripMode=!qlTripMode;
+  const sec=$('ql-trip-section');const btn=$('ql-trip-btn');const sum=$('ql-trip-summary');
+  if(sec)sec.style.display=qlTripMode?'':'none';
+  if(btn){btn.style.opacity=qlTripMode?'1':'0.45';btn.style.borderColor=qlTripMode?'var(--a2)':'var(--border2)';}
+  if(qlTripMode){
+    const cp=$('trip-cur-pills');
+    if(cp)cp.innerHTML=TRIP_CURS.map(c=>`<button class="ql-month-btn${c.code===tripCur?' sel':''}" onclick="tripPickCur('${c.code}',this)">${c.flag} ${c.code}</button>`).join('');
+    tripPickPayer(tripPayer,$(tripPayer==='me'?'tp-me':tripPayer==='partner'?'tp-partner':'tp-shared'));
+    loadTripRates();
+    renderQlTripSummary();
+    if(sum)sum.style.display='';
+  } else {
+    if(sum)sum.style.display='none';
+  }
 }
 
 async function loadTripRates(){
   const cached=JSON.parse(localStorage.getItem('ft_trip_rates')||'null');
   const today=new Date().toISOString().slice(0,10);
-  if(cached&&cached.date===today){tripRates={...cached.rates,SGD:1};renderTripRatesLabel(cached.date);return;}
+  if(cached&&cached.date===today){tripRates={...cached.rates,SGD:1};return;}
   try{
     const res=await fetch('https://api.frankfurter.app/latest?from=SGD');
     if(!res.ok)throw new Error();
     const data=await res.json();
     tripRates={...data.rates,SGD:1};
     localStorage.setItem('ft_trip_rates',JSON.stringify({date:data.date,rates:tripRates}));
-    renderTripRatesLabel(data.date);
-  }catch(e){
-    if(cached){tripRates={...cached.rates,SGD:1};renderTripRatesLabel(cached.date+' (cached)');}
-    else{const el=$('trip-rates-label');if(el)el.textContent='⚠ Rates unavailable — check connection';}
-  }
-}
-
-function renderTripRatesLabel(date){
-  const el=$('trip-rates-label');
-  if(!el)return;
-  const cur=TRIP_CURS.find(c=>c.code===tripCur);
-  const rate=tripRates[tripCur];
-  el.textContent=date+' · 1 S$ = '+(cur?.sym||'')+(rate?(1/rate).toFixed(tripCur==='JPY'||tripCur==='KRW'?0:4):'—');
+    qlAmtInput();
+  }catch(e){if(cached)tripRates={...cached.rates,SGD:1};}
 }
 
 function toSGD(amt,currency){
@@ -2851,14 +2834,7 @@ function tripPickCur(code,btn){
   tripCur=code;
   document.querySelectorAll('#trip-cur-pills .ql-month-btn').forEach(b=>b.classList.remove('sel'));
   if(btn)btn.classList.add('sel');
-  updateTripConversion();
-  renderTripRatesLabel((JSON.parse(localStorage.getItem('ft_trip_rates')||'{}').date)||'');
-}
-
-function tripPickCat(name,btn){
-  tripCat=name;
-  document.querySelectorAll('#trip-cats .ql-cat-btn').forEach(b=>b.classList.remove('sel'));
-  if(btn)btn.classList.add('sel');
+  qlAmtInput();
 }
 
 function tripPickPayer(payer,btn){
@@ -2870,112 +2846,35 @@ function tripPickPayer(payer,btn){
   });
 }
 
-function updateTripConversion(){
-  const amt=parseFloat($('trip-amt')?.value)||0;
-  const el=$('trip-sgd-display');if(!el)return;
+function qlAmtInput(){
+  if(!qlTripMode)return;
+  const amt=parseFloat($('ql-amt')?.value)||0;
+  const el=$('ql-trip-sgd');if(!el)return;
   if(!amt){el.textContent='= S$ —';return;}
   const sgd=toSGD(amt,tripCur);
-  el.textContent=sgd!==null?'= S$'+sgd.toFixed(2):'= rate unavailable';
+  el.textContent=sgd!==null?`= S$${sgd.toFixed(2)}`:'= rate unavailable';
 }
 
-function addTripExpense(){
-  const amt=parseFloat($('trip-amt')?.value);
-  if(!amt||amt<=0){toast('Enter an amount');return;}
-  if(!tripCat){toast('Pick a category');return;}
-  const sgd=toSGD(amt,tripCur);
-  if(sgd===null){toast('No rate for '+tripCur+' — check connection');return;}
-  const dateVal=$('trip-date')?.value||new Date().toISOString().slice(0,10);
-  const note=$('trip-note')?.value?.trim()||'';
-  if(!S.trip)S.trip={name:'✈️ Trip',expenses:[]};
-  if(!S.trip.expenses)S.trip.expenses=[];
-  S.trip.expenses.push({id:Date.now(),amt,currency:tripCur,sgd,cat:tripCat,payer:tripPayer,date:dateVal,note});
-  saveS();
-  $('trip-amt').value='';if($('trip-note'))$('trip-note').value='';
-  if($('trip-sgd-display'))$('trip-sgd-display').textContent='= S$ —';
-  renderTripList();renderTripSummary();
-  const cur=TRIP_CURS.find(c=>c.code===tripCur);
-  toast('✓ '+(tripCat)+' '+(cur?.sym||'')+amt.toFixed(2)+' = S$'+sgd.toFixed(2));
-}
-
-function deleteTripExpense(id){
-  if(!S.trip?.expenses)return;
-  S.trip.expenses=S.trip.expenses.filter(e=>e.id!==id);
-  saveS();renderTripList();renderTripSummary();
-}
-
-function renderTripList(){
-  const el=$('trip-list');if(!el)return;
-  const exps=(S.trip?.expenses||[]).slice().reverse();
-  if(!exps.length){el.innerHTML='<div class="xxs faint" style="padding:8px 0 4px">No expenses logged yet.</div>';return;}
-  const payerLabel={me:'👤 Me',partner:'👥 Partner',shared:'⇌ Shared'};
-  const payerColor={me:'var(--a3)',partner:'var(--a2)',shared:'var(--text3)'};
-  el.innerHTML=exps.map(e=>{
-    const cur=TRIP_CURS.find(c=>c.code===e.currency);
-    const cat=TRIP_CATS.find(c=>c.name===e.cat);
-    const d=new Date(e.date+'T00:00:00').toLocaleDateString('en-SG',{day:'numeric',month:'short'});
-    return`<div class="card mb8">
-      <div class="fb" style="align-items:start;gap:10px">
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:600">${cat?.icon||''} ${e.cat}${e.note?` <span class="xxs faint">· ${e.note}</span>`:''}</div>
-          <div class="xxs mt2" style="color:${payerColor[e.payer]||'var(--text3)'}">${payerLabel[e.payer]||e.payer} · ${d}</div>
-        </div>
-        <div style="text-align:right;flex-shrink:0">
-          <div style="font-size:15px;font-weight:700">${cur?.sym||''}${e.amt%1===0?e.amt.toFixed(0):e.amt.toFixed(2)}</div>
-          <div class="xxs faint">S$${e.sgd.toFixed(2)}</div>
-        </div>
-        <button class="btn sm danger" style="align-self:center" onclick="deleteTripExpense(${e.id})">✕</button>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-function renderTripSummary(){
-  const el=$('trip-summary');if(!el)return;
+function renderQlTripSummary(){
+  const el=$('ql-trip-summary');if(!el)return;
   const exps=S.trip?.expenses||[];
-  if(!exps.length){el.style.display='none';return;}
-  el.style.display='';
+  if(!exps.length){el.innerHTML='<div class="xxs faint">No trip expenses yet.</div>';return;}
   const me=exps.filter(e=>e.payer==='me').reduce((s,e)=>s+e.sgd,0);
   const partner=exps.filter(e=>e.payer==='partner').reduce((s,e)=>s+e.sgd,0);
   const shared=exps.filter(e=>e.payer==='shared').reduce((s,e)=>s+e.sgd,0);
   const total=me+partner+shared;
-  const myEff=me+shared/2,partnerEff=partner+shared/2;
-  const splitEach=(me+partner+shared)/2;
-  const meOwes=splitEach-myEff;
-  const settleLine=Math.abs(meOwes)<0.5?'<span style="color:var(--a2)">✓ All square</span>'
-    :meOwes>0?`<span style="color:var(--a4)">You owe Partner <strong>S$${meOwes.toFixed(2)}</strong></span>`
-    :`<span style="color:var(--a2)">Partner owes you <strong>S$${Math.abs(meOwes).toFixed(2)}</strong></span>`;
-  const byCat={};exps.forEach(e=>{byCat[e.cat]=(byCat[e.cat]||0)+e.sgd;});
-  const catRows=Object.entries(byCat).sort((a,b)=>b[1]-a[1]).map(([c,v])=>{
-    const cat=TRIP_CATS.find(x=>x.name===c);
-    const pct=total?Math.round(v/total*100):0;
-    return`<div class="fb" style="font-size:12px;padding:3px 0"><span>${cat?.icon||''} ${c} <span class="xxs faint">${pct}%</span></span><span class="mono">S$${v.toFixed(2)}</span></div>`;
+  const meOwes=(me+partner+shared)/2-(me+shared/2);
+  const settle=Math.abs(meOwes)<0.5?'✓ All square'
+    :meOwes>0?`You owe Partner S$${meOwes.toFixed(2)}`
+    :`Partner owes you S$${Math.abs(meOwes).toFixed(2)}`;
+  const settleColor=Math.abs(meOwes)<0.5?'var(--a2)':meOwes>0?'var(--a4)':'var(--a2)';
+  const recent=exps.slice(-3).reverse().map(e=>{
+    const cur=TRIP_CURS.find(c=>c.code===e.currency);
+    return`<div class="fb" style="font-size:11px;padding:2px 0"><span class="faint">${e.cat}</span><span class="mono">${cur?.sym||''}${e.amt%1===0?e.amt:e.amt.toFixed(2)} <span class="faint">S$${e.sgd.toFixed(2)}</span></span></div>`;
   }).join('');
-  el.innerHTML=`<div class="fb mb10"><div class="section-title">Summary</div><div style="font-size:20px;font-weight:700;color:var(--a3)" class="mono">S$${total.toFixed(2)}</div></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
-      <div style="background:var(--bg3);border-radius:8px;padding:10px;text-align:center">
-        <div class="xxs faint mb2">👤 Me paid</div><div class="mono bold" style="color:var(--a3)">S$${me.toFixed(2)}</div>
-        ${shared?`<div class="xxs faint">+S$${(shared/2).toFixed(2)} shared</div>`:''}
-      </div>
-      <div style="background:var(--bg3);border-radius:8px;padding:10px;text-align:center">
-        <div class="xxs faint mb2">👥 Partner paid</div><div class="mono bold" style="color:var(--a2)">S$${partner.toFixed(2)}</div>
-        ${shared?`<div class="xxs faint">+S$${(shared/2).toFixed(2)} shared</div>`:''}
-      </div>
-    </div>
-    <div style="font-size:12px;padding:8px 10px;background:var(--bg3);border-radius:8px;text-align:center;margin-bottom:10px">${settleLine}</div>
-    <div style="border-top:1px solid var(--border2);padding-top:8px">${catRows}</div>`;
-}
-
-function toggleTripSetup(){
-  const el=$('trip-setup');if(!el)return;
-  el.style.display=el.style.display==='none'?'':'none';
-  if(el.style.display!=='none')sv('trip-name-input',S.trip?.name||'');
-}
-
-function saveTripName(){
-  const name=$('trip-name-input')?.value?.trim();if(!name)return;
-  if(!S.trip)S.trip={expenses:[]};
-  S.trip.name=name;saveS();
-  st('trip-name-display',name);toggleTripSetup();toast('✓ Saved');
+  el.innerHTML=`<div class="fb mb6"><span style="font-size:12px;font-weight:600">✈️ Trip total</span><span class="mono bold" style="color:var(--a3)">S$${total.toFixed(2)}</span></div>
+    <div class="fb mb6"><span class="xxs faint">👤 S$${me.toFixed(2)} · 👥 S$${partner.toFixed(2)}${shared?` · ⇌ S$${shared.toFixed(2)}`:''}</span><span class="xxs" style="color:${settleColor}">${settle}</span></div>
+    ${recent}`;
 }
 
 // ── CHANNELS ──
