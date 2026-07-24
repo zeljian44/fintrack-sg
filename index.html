@@ -175,15 +175,10 @@ hr.div{border:none;border-top:1px solid var(--border);margin:12px 0}
       style="font-size:32px;font-weight:700;font-family:var(--mono);text-align:center;border:2px solid var(--border2);border-radius:14px;padding:14px;width:100%;background:var(--bg3);color:var(--text);margin-bottom:8px;outline:none"
       onfocus="this.style.borderColor='var(--a2)'" onblur="this.style.borderColor='var(--border2)'"
       onkeydown="if(event.key==='Enter'){document.getElementById('ql-cats').querySelector('.ql-cat-btn')?.focus()}">
-    <!-- Trip extras — hidden until ✈️ toggled -->
+    <!-- Overseas extras — hidden until ✈️ toggled -->
     <div id="ql-trip-section" style="display:none">
+      <div id="trip-cur-pills" style="display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;margin-bottom:8px"></div>
       <div id="ql-trip-sgd" style="text-align:center;font-size:13px;color:var(--a2);font-weight:600;margin-bottom:12px">= S$ —</div>
-      <div id="trip-cur-pills" style="display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;margin-bottom:12px"></div>
-      <div style="display:flex;gap:8px;margin-bottom:14px">
-        <button id="tp-me" class="btn" style="flex:1;border-color:var(--a3);color:var(--a3)" onclick="tripPickPayer('me',this)">👤 Me</button>
-        <button id="tp-partner" class="btn" style="flex:1" onclick="tripPickPayer('partner',this)">👥 Partner</button>
-        <button id="tp-shared" class="btn" style="flex:1" onclick="tripPickPayer('shared',this)">⇌ Shared</button>
-      </div>
     </div>
     <div style="margin-bottom:10px">
       <div style="font-size:11px;color:var(--text2);margin-bottom:6px;font-weight:500">Date</div>
@@ -192,8 +187,6 @@ hr.div{border:none;border-top:1px solid var(--border);margin:12px 0}
     <div style="font-size:11px;color:var(--text2);margin-bottom:8px;font-weight:500">Category</div>
     <div id="ql-cats" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:20px"></div>
     <button class="btn pri full" style="padding:13px;font-size:14px" onclick="submitQuickLog()">Add expense ↗</button>
-    <!-- Compact trip summary shown when trip mode active -->
-    <div id="ql-trip-summary" style="display:none;margin-top:14px;padding-top:12px;border-top:1px solid var(--border2)"></div>
   </div>
 </div>
 
@@ -2262,8 +2255,6 @@ function openQuickLog(){
   const el=$('ql-cats');
   if(el)el.innerHTML=SPEND_CATS.map(c=>`<button class="ql-cat-btn" onclick="qlPickCat('${c.name}',this)">${c.icon} ${c.name}</button>`).join('');
   const amt=$('ql-amt');if(amt){amt.value='';setTimeout(()=>amt.focus(),150);}
-  // reset trip section
-  if(qlTripMode){const sec=$('ql-trip-section');if(sec)sec.style.display='';}
   const sgdEl=$('ql-trip-sgd');if(sgdEl)sgdEl.textContent='= S$ —';
 }
 function qlDateChange(val){
@@ -2284,20 +2275,18 @@ function submitQuickLog(){
   if(!qlCat){toast('Pick a category');return;}
   const dateVal=$('ql-date')?.value||new Date().toISOString().slice(0,10);
   const month=dateToMonth(dateVal);
-  if(qlTripMode){
+  if(qlTripMode&&tripCur!=='SGD'){
     const sgd=toSGD(amt,tripCur);
     if(sgd===null){toast('No rate for '+tripCur+' — check connection');return;}
-    if(!S.trip)S.trip={expenses:[]};
-    if(!S.trip.expenses)S.trip.expenses=[];
-    S.trip.expenses.push({id:Date.now(),amt,currency:tripCur,sgd,cat:qlCat,payer:tripPayer,date:dateVal,note:''});
-    saveS();
+    if(!S.spendLog)S.spendLog=[];
+    S.spendLog.push({cat:qlCat,amt:sgd,date:dateVal,month,overseas:true,origAmt:amt,origCur:tripCur});
+    if(!S.budget)S.budget={categories:[],actuals:{}};
+    if(!S.budget.actuals)S.budget.actuals={};
+    if(!S.budget.actuals[month])S.budget.actuals[month]={};
+    S.budget.actuals[month]['Spending']=(S.budget.actuals[month]['Spending']||0)+sgd;
+    saveS();closeQLModal();
     const cur=TRIP_CURS.find(c=>c.code===tripCur);
-    toast('✈️ '+qlCat+' '+(cur?.sym||'')+amt.toFixed(2)+' = S$'+sgd.toFixed(2));
-    $('ql-amt').value='';
-    const sgdEl=$('ql-trip-sgd');if(sgdEl)sgdEl.textContent='= S$ —';
-    qlCat=null;
-    document.querySelectorAll('#ql-cats .ql-cat-btn').forEach(b=>b.classList.remove('sel'));
-    renderQlTripSummary();
+    toast('✓ ✈️ '+qlCat+' '+(cur?.sym||'')+amt.toFixed(2)+' = S$'+sgd.toFixed(2));
     return;
   }
   if(!S.spendLog)S.spendLog=[];
@@ -2784,29 +2773,24 @@ function showCatCards(cat,btn,rawQuery='',isOnline=false,isContactless=false,isO
   el.innerHTML=html;
 }
 
-// ── TRIP ──
+// ── OVERSEAS MODE ──
 const TRIP_CURS=[
   {code:'EUR',sym:'€',flag:'🇪🇺'},{code:'GBP',sym:'£',flag:'🇬🇧'},{code:'CHF',sym:'Fr',flag:'🇨🇭'},
-  {code:'SGD',sym:'S$',flag:'🇸🇬'},{code:'USD',sym:'$',flag:'🇺🇸'},{code:'JPY',sym:'¥',flag:'🇯🇵'},
-  {code:'THB',sym:'฿',flag:'🇹🇭'},{code:'MYR',sym:'RM',flag:'🇲🇾'},{code:'AUD',sym:'A$',flag:'🇦🇺'},
-  {code:'HKD',sym:'HK$',flag:'🇭🇰'},{code:'KRW',sym:'₩',flag:'🇰🇷'},
+  {code:'USD',sym:'$',flag:'🇺🇸'},{code:'JPY',sym:'¥',flag:'🇯🇵'},{code:'THB',sym:'฿',flag:'🇹🇭'},
+  {code:'MYR',sym:'RM',flag:'🇲🇾'},{code:'AUD',sym:'A$',flag:'🇦🇺'},{code:'HKD',sym:'HK$',flag:'🇭🇰'},
+  {code:'KRW',sym:'₩',flag:'🇰🇷'},{code:'SGD',sym:'S$',flag:'🇸🇬'},
 ];
-let tripRates={SGD:1},tripCur='EUR',tripPayer='me',qlTripMode=false;
+let tripRates={SGD:1},tripCur='EUR',qlTripMode=false;
 
 function toggleQlTrip(){
   qlTripMode=!qlTripMode;
-  const sec=$('ql-trip-section');const btn=$('ql-trip-btn');const sum=$('ql-trip-summary');
+  const sec=$('ql-trip-section');const btn=$('ql-trip-btn');
   if(sec)sec.style.display=qlTripMode?'':'none';
   if(btn){btn.style.opacity=qlTripMode?'1':'0.45';btn.style.borderColor=qlTripMode?'var(--a2)':'var(--border2)';}
   if(qlTripMode){
     const cp=$('trip-cur-pills');
     if(cp)cp.innerHTML=TRIP_CURS.map(c=>`<button class="ql-month-btn${c.code===tripCur?' sel':''}" onclick="tripPickCur('${c.code}',this)">${c.flag} ${c.code}</button>`).join('');
-    tripPickPayer(tripPayer,$(tripPayer==='me'?'tp-me':tripPayer==='partner'?'tp-partner':'tp-shared'));
     loadTripRates();
-    renderQlTripSummary();
-    if(sum)sum.style.display='';
-  } else {
-    if(sum)sum.style.display='none';
   }
 }
 
@@ -2837,15 +2821,6 @@ function tripPickCur(code,btn){
   qlAmtInput();
 }
 
-function tripPickPayer(payer,btn){
-  tripPayer=payer;
-  const colors={me:'var(--a3)',partner:'var(--a2)',shared:'var(--text2)'};
-  ['me','partner','shared'].forEach(p=>{
-    const b=$('tp-'+p);
-    if(b){b.style.borderColor=p===payer?colors[p]:'';b.style.color=p===payer?colors[p]:'';}
-  });
-}
-
 function qlAmtInput(){
   if(!qlTripMode)return;
   const amt=parseFloat($('ql-amt')?.value)||0;
@@ -2853,28 +2828,6 @@ function qlAmtInput(){
   if(!amt){el.textContent='= S$ —';return;}
   const sgd=toSGD(amt,tripCur);
   el.textContent=sgd!==null?`= S$${sgd.toFixed(2)}`:'= rate unavailable';
-}
-
-function renderQlTripSummary(){
-  const el=$('ql-trip-summary');if(!el)return;
-  const exps=S.trip?.expenses||[];
-  if(!exps.length){el.innerHTML='<div class="xxs faint">No trip expenses yet.</div>';return;}
-  const me=exps.filter(e=>e.payer==='me').reduce((s,e)=>s+e.sgd,0);
-  const partner=exps.filter(e=>e.payer==='partner').reduce((s,e)=>s+e.sgd,0);
-  const shared=exps.filter(e=>e.payer==='shared').reduce((s,e)=>s+e.sgd,0);
-  const total=me+partner+shared;
-  const meOwes=(me+partner+shared)/2-(me+shared/2);
-  const settle=Math.abs(meOwes)<0.5?'✓ All square'
-    :meOwes>0?`You owe Partner S$${meOwes.toFixed(2)}`
-    :`Partner owes you S$${Math.abs(meOwes).toFixed(2)}`;
-  const settleColor=Math.abs(meOwes)<0.5?'var(--a2)':meOwes>0?'var(--a4)':'var(--a2)';
-  const recent=exps.slice(-3).reverse().map(e=>{
-    const cur=TRIP_CURS.find(c=>c.code===e.currency);
-    return`<div class="fb" style="font-size:11px;padding:2px 0"><span class="faint">${e.cat}</span><span class="mono">${cur?.sym||''}${e.amt%1===0?e.amt:e.amt.toFixed(2)} <span class="faint">S$${e.sgd.toFixed(2)}</span></span></div>`;
-  }).join('');
-  el.innerHTML=`<div class="fb mb6"><span style="font-size:12px;font-weight:600">✈️ Trip total</span><span class="mono bold" style="color:var(--a3)">S$${total.toFixed(2)}</span></div>
-    <div class="fb mb6"><span class="xxs faint">👤 S$${me.toFixed(2)} · 👥 S$${partner.toFixed(2)}${shared?` · ⇌ S$${shared.toFixed(2)}`:''}</span><span class="xxs" style="color:${settleColor}">${settle}</span></div>
-    ${recent}`;
 }
 
 // ── CHANNELS ──
